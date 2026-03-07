@@ -1,0 +1,10 @@
+Business Context
+Entities
+Functional Requirements
+Authorization Rules
+Business Constraints
+Technology Stack
+Architecture Guardrails
+Testing Requirements
+DevOps Expectations
+Output Expectations
