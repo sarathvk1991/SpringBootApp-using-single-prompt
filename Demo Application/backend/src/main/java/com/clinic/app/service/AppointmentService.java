@@ -107,6 +107,47 @@ public class AppointmentService {
         return toResponse(appointment);
     }
 
+    public AppointmentResponse rescheduleAppointment(Long appointmentId, Long newSlotId) {
+        User patient = getCurrentUser();
+        if (patient.getRole() != Role.PATIENT) {
+            throw new UnauthorizedException("Only patients can reschedule appointments");
+        }
+        if (appointmentId.equals(newSlotId)) {
+            throw new BadRequestException("New slot must be different from current appointment");
+        }
+
+        Appointment currentAppointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment not found"));
+
+        if (currentAppointment.getPatient() == null
+                || !currentAppointment.getPatient().getId().equals(patient.getId())) {
+            throw new UnauthorizedException("Only the booking patient can reschedule");
+        }
+        if (currentAppointment.getStatus() != AppointmentStatus.BOOKED) {
+            throw new BadRequestException("Only booked appointments can be rescheduled");
+        }
+
+        Appointment newSlot = appointmentRepository.findById(newSlotId)
+                .orElseThrow(() -> new ResourceNotFoundException("New slot not found"));
+
+        if (newSlot.getStatus() != AppointmentStatus.AVAILABLE) {
+            throw new BadRequestException("New slot is not available");
+        }
+        if (newSlot.getAppointmentTime().isBefore(LocalDateTime.now())) {
+            throw new BadRequestException("Cannot reschedule to past appointments");
+        }
+
+        currentAppointment.setPatient(null);
+        currentAppointment.setStatus(AppointmentStatus.AVAILABLE);
+        appointmentRepository.save(currentAppointment);
+
+        newSlot.setPatient(patient);
+        newSlot.setStatus(AppointmentStatus.BOOKED);
+        appointmentRepository.save(newSlot);
+
+        return toResponse(newSlot);
+    }
+
     public List<AppointmentResponse> getDoctorAppointments() {
         User doctor = getCurrentUser();
         if (doctor.getRole() != Role.DOCTOR) {

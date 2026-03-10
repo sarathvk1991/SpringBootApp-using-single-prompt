@@ -18,6 +18,7 @@ import com.clinic.app.repository.AppointmentRepository;
 import com.clinic.app.repository.UserRepository;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.lang.reflect.Field;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,6 +51,8 @@ class AppointmentServiceTest {
     void setup() {
         doctor = new User("Dr. Who", "doctor@example.com", "encoded", Role.DOCTOR);
         patient = new User("Amy", "patient@example.com", "encoded", Role.PATIENT);
+        setId(doctor, 10L);
+        setId(patient, 20L);
     }
 
     @AfterEach
@@ -106,9 +109,66 @@ class AppointmentServiceTest {
         verify(appointmentRepository, times(2)).save(any(Appointment.class));
     }
 
+    @Test
+    void rescheduleMovesBookingToNewSlot() {
+        setAuth(patient);
+        Appointment current = new Appointment(doctor, LocalDateTime.now().plusDays(2), AppointmentStatus.BOOKED);
+        current.setPatient(patient);
+        Appointment newSlot = new Appointment(doctor, LocalDateTime.now().plusDays(5), AppointmentStatus.AVAILABLE);
+
+        when(appointmentRepository.findById(eq(1L))).thenReturn(Optional.of(current));
+        when(appointmentRepository.findById(eq(2L))).thenReturn(Optional.of(newSlot));
+        when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        var response = appointmentService.rescheduleAppointment(1L, 2L);
+
+        assertEquals(AppointmentStatus.BOOKED.name(), response.getStatus());
+        assertEquals(AppointmentStatus.AVAILABLE, current.getStatus());
+        assertEquals(patient, newSlot.getPatient());
+        verify(appointmentRepository, times(2)).save(any(Appointment.class));
+    }
+
+    @Test
+    void rescheduleRejectsUnavailableNewSlot() {
+        setAuth(patient);
+        Appointment current = new Appointment(doctor, LocalDateTime.now().plusDays(2), AppointmentStatus.BOOKED);
+        current.setPatient(patient);
+        Appointment newSlot = new Appointment(doctor, LocalDateTime.now().plusDays(5), AppointmentStatus.BOOKED);
+
+        when(appointmentRepository.findById(eq(1L))).thenReturn(Optional.of(current));
+        when(appointmentRepository.findById(eq(2L))).thenReturn(Optional.of(newSlot));
+
+        assertThrows(BadRequestException.class, () -> appointmentService.rescheduleAppointment(1L, 2L));
+    }
+
+    @Test
+    void rescheduleRejectsNonOwner() {
+        setAuth(patient);
+        User anotherPatient = new User("Other", "other@example.com", "encoded", Role.PATIENT);
+        setId(anotherPatient, 30L);
+        Appointment current = new Appointment(doctor, LocalDateTime.now().plusDays(2), AppointmentStatus.BOOKED);
+        current.setPatient(anotherPatient);
+        Appointment newSlot = new Appointment(doctor, LocalDateTime.now().plusDays(5), AppointmentStatus.AVAILABLE);
+
+        when(appointmentRepository.findById(eq(1L))).thenReturn(Optional.of(current));
+
+        assertThrows(com.clinic.app.exception.UnauthorizedException.class,
+                () -> appointmentService.rescheduleAppointment(1L, 2L));
+    }
+
     private void setAuth(User user) {
         UsernamePasswordAuthenticationToken auth =
                 new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
         SecurityContextHolder.getContext().setAuthentication(auth);
+    }
+
+    private void setId(User user, Long id) {
+        try {
+            Field field = User.class.getDeclaredField("id");
+            field.setAccessible(true);
+            field.set(user, id);
+        } catch (NoSuchFieldException | IllegalAccessException ex) {
+            throw new IllegalStateException("Failed to set user id for tests", ex);
+        }
     }
 }

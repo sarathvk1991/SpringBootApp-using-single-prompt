@@ -103,6 +103,47 @@ describe("Dashboard UI", () => {
     });
   });
 
+  it("reschedules a booked appointment", async () => {
+    api.get.mockImplementation((url) => {
+      if (url === "/appointments/available") {
+        return Promise.resolve({
+          data: [
+            {
+              id: 1,
+              appointmentTime: new Date().toISOString(),
+              doctorName: "Dr. Alice",
+              status: "AVAILABLE"
+            }
+          ]
+        });
+      }
+      if (url === "/appointments/mine") {
+        return Promise.resolve({
+          data: [
+            {
+              id: 2,
+              appointmentTime: new Date().toISOString(),
+              doctorName: "Dr. Alice",
+              status: "BOOKED"
+            }
+          ]
+        });
+      }
+      return Promise.resolve({ data: [] });
+    });
+    api.post.mockResolvedValue({ data: {} });
+
+    render(<PatientDashboard />);
+
+    const select = await screen.findByRole("combobox");
+    fireEvent.change(select, { target: { value: "1" } });
+    fireEvent.click(screen.getByRole("button", { name: /reschedule/i }));
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith("/appointments/2/reschedule", { newSlotId: 1 });
+    });
+  });
+
   it("shows booking notification notice", async () => {
     api.get.mockImplementation((url) => {
       if (url === "/appointments/available") {

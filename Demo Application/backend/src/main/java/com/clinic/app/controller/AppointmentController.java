@@ -1,6 +1,7 @@
 package com.clinic.app.controller;
 
 import com.clinic.app.dto.AppointmentCreateRequest;
+import com.clinic.app.dto.AppointmentRescheduleRequest;
 import com.clinic.app.dto.AppointmentResponse;
 import com.clinic.app.service.AppointmentService;
 import jakarta.validation.Valid;
@@ -40,6 +41,14 @@ public class AppointmentController {
     @PreAuthorize("hasRole('PATIENT')")
     public ResponseEntity<AppointmentResponse> cancelAppointment(@PathVariable("id") Long id) {
         return ResponseEntity.ok(appointmentService.cancelAppointment(id));
+    }
+
+    @PostMapping("/{id}/reschedule")
+    @PreAuthorize("hasRole('PATIENT')")
+    public ResponseEntity<AppointmentResponse> rescheduleAppointment(
+            @PathVariable("id") Long id,
+            @Valid @RequestBody AppointmentRescheduleRequest request) {
+        return ResponseEntity.ok(appointmentService.rescheduleAppointment(id, request.getNewSlotId()));
     }
 
     @GetMapping("/doctor")

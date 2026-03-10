@@ -6,6 +6,7 @@ export default function PatientDashboard() {
   const [mine, setMine] = useState([]);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [rescheduleTargets, setRescheduleTargets] = useState({});
 
   const loadAvailable = async () => {
     try {
@@ -55,6 +56,24 @@ export default function PatientDashboard() {
     }
   };
 
+  const reschedule = async (id) => {
+    const newSlotId = rescheduleTargets[id];
+    if (!newSlotId) {
+      setError("Select a new slot to reschedule");
+      return;
+    }
+    setError("");
+    setNotice("");
+    try {
+      await api.post(`/appointments/${id}/reschedule`, { newSlotId: Number(newSlotId) });
+      setNotice("Appointment rescheduled successfully.");
+      loadAvailable();
+      loadMine();
+    } catch (err) {
+      setError(err?.response?.data?.error || "Reschedule failed");
+    }
+  };
+
   return (
     <section>
       <h3>Patient Dashboard</h3>
@@ -67,7 +86,25 @@ export default function PatientDashboard() {
             <span>
               {new Date(appt.appointmentTime).toLocaleString()} with {appt.doctorName} - {appt.status}
             </span>
-            {appt.status === "BOOKED" && <button onClick={() => cancel(appt.id)}>Cancel</button>}
+            {appt.status === "BOOKED" && (
+              <>
+                <select
+                  value={rescheduleTargets[appt.id] || ""}
+                  onChange={(e) =>
+                    setRescheduleTargets((prev) => ({ ...prev, [appt.id]: e.target.value }))
+                  }
+                >
+                  <option value="">Select new slot</option>
+                  {available.map((slot) => (
+                    <option key={slot.id} value={slot.id}>
+                      {new Date(slot.appointmentTime).toLocaleString()} with {slot.doctorName}
+                    </option>
+                  ))}
+                </select>
+                <button onClick={() => reschedule(appt.id)}>Reschedule</button>
+                <button onClick={() => cancel(appt.id)}>Cancel</button>
+              </>
+            )}
           </li>
         ))}
       </ul>
