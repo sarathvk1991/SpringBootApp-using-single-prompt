@@ -72,6 +72,9 @@ public class AppointmentService {
 
     public AppointmentResponse cancelAppointment(Long appointmentId) {
         User patient = getCurrentUser();
+        if (patient.getRole() != Role.PATIENT) {
+            throw new UnauthorizedException("Only patients can cancel appointments");
+        }
         Appointment appointment = appointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Appointment not found"));
 
@@ -79,9 +82,21 @@ public class AppointmentService {
             throw new UnauthorizedException("Only the booking patient can cancel");
         }
 
-        appointment.setPatient(null);
-        appointment.setStatus(AppointmentStatus.AVAILABLE);
+        if (appointment.getStatus() != AppointmentStatus.BOOKED) {
+            throw new BadRequestException("Only booked appointments can be cancelled");
+        }
+        if (appointment.getAppointmentTime().isBefore(LocalDateTime.now())) {
+            throw new BadRequestException("Cannot cancel past appointments");
+        }
+
+        appointment.setStatus(AppointmentStatus.CANCELLED);
         appointmentRepository.save(appointment);
+
+        Appointment replacementSlot = new Appointment(
+                appointment.getDoctor(),
+                appointment.getAppointmentTime(),
+                AppointmentStatus.AVAILABLE);
+        appointmentRepository.save(replacementSlot);
         return toResponse(appointment);
     }
 

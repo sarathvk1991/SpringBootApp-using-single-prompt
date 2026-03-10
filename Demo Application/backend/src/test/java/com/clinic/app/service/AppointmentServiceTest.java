@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.clinic.app.domain.Appointment;
@@ -82,6 +84,21 @@ class AppointmentServiceTest {
         when(appointmentRepository.findById(eq(1L))).thenReturn(Optional.of(appointment));
 
         assertThrows(BadRequestException.class, () -> appointmentService.bookSlot(1L));
+    }
+
+    @Test
+    void cancelAppointmentMarksCancelledAndCreatesReplacementSlot() {
+        setAuth(patient);
+        Appointment appointment = new Appointment(doctor, LocalDateTime.now().plusDays(1), AppointmentStatus.BOOKED);
+        appointment.setPatient(patient);
+
+        when(appointmentRepository.findById(eq(1L))).thenReturn(Optional.of(appointment));
+        when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        var response = appointmentService.cancelAppointment(1L);
+
+        assertEquals(AppointmentStatus.CANCELLED.name(), response.getStatus());
+        verify(appointmentRepository, times(2)).save(any(Appointment.class));
     }
 
     private void setAuth(User user) {
