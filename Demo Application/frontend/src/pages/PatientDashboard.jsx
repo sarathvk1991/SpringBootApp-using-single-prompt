@@ -5,6 +5,7 @@ export default function PatientDashboard() {
   const [available, setAvailable] = useState([]);
   const [mine, setMine] = useState([]);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   const loadAvailable = async () => {
     try {
@@ -31,8 +32,10 @@ export default function PatientDashboard() {
 
   const book = async (id) => {
     setError("");
+    setNotice("");
     try {
       await api.post(`/appointments/${id}/book`);
+      setNotice("Booking confirmed. Notifications sent to doctor and patient.");
       loadAvailable();
       loadMine();
     } catch (err) {
@@ -42,6 +45,7 @@ export default function PatientDashboard() {
 
   const cancel = async (id) => {
     setError("");
+    setNotice("");
     try {
       await api.post(`/appointments/${id}/cancel`);
       loadAvailable();
@@ -55,6 +59,7 @@ export default function PatientDashboard() {
     <section>
       <h3>Patient Dashboard</h3>
       {error && <p style={{ color: "crimson" }}>{error}</p>}
+      {notice && <p style={{ color: "seagreen" }}>{notice}</p>}
       <h4>My Appointments</h4>
       <ul>
         {mine.map((appt) => (

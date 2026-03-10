@@ -102,4 +102,35 @@ describe("Dashboard UI", () => {
       expect(api.post).toHaveBeenCalledWith("/appointments/2/cancel");
     });
   });
+
+  it("shows booking notification notice", async () => {
+    api.get.mockImplementation((url) => {
+      if (url === "/appointments/available") {
+        return Promise.resolve({
+          data: [
+            {
+              id: 1,
+              appointmentTime: new Date().toISOString(),
+              doctorName: "Dr. Alice",
+              status: "AVAILABLE"
+            }
+          ]
+        });
+      }
+      if (url === "/appointments/mine") {
+        return Promise.resolve({ data: [] });
+      }
+      return Promise.resolve({ data: [] });
+    });
+    api.post.mockResolvedValue({ data: {} });
+
+    render(<PatientDashboard />);
+
+    const bookButton = await screen.findByRole("button", { name: /book/i });
+    fireEvent.click(bookButton);
+
+    expect(
+      await screen.findByText(/booking confirmed\. notifications sent to doctor and patient\./i)
+    ).toBeInTheDocument();
+  });
 });

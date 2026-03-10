@@ -21,10 +21,14 @@ import org.springframework.stereotype.Service;
 public class AppointmentService {
     private final AppointmentRepository appointmentRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
-    public AppointmentService(AppointmentRepository appointmentRepository, UserRepository userRepository) {
+    public AppointmentService(AppointmentRepository appointmentRepository,
+                              UserRepository userRepository,
+                              NotificationService notificationService) {
         this.appointmentRepository = appointmentRepository;
         this.userRepository = userRepository;
+        this.notificationService = notificationService;
     }
 
     public AppointmentResponse createSlot(AppointmentCreateRequest request) {
@@ -67,6 +71,9 @@ public class AppointmentService {
         appointment.setPatient(patient);
         appointment.setStatus(AppointmentStatus.BOOKED);
         appointmentRepository.save(appointment);
+
+        notificationService.notifyBooking(appointment);
+        notificationService.scheduleReminder(appointment);
         return toResponse(appointment);
     }
 

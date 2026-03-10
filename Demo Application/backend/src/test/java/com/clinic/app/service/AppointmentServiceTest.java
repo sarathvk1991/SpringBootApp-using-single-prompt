@@ -37,6 +37,9 @@ class AppointmentServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private NotificationService notificationService;
+
     @InjectMocks
     private AppointmentService appointmentService;
 
@@ -74,6 +77,8 @@ class AppointmentServiceTest {
         var response = appointmentService.bookSlot(1L);
         assertEquals(AppointmentStatus.BOOKED.name(), response.getStatus());
         assertEquals(patient.getName(), response.getPatientName());
+        verify(notificationService).notifyBooking(any(Appointment.class));
+        verify(notificationService).scheduleReminder(any(Appointment.class));
     }
 
     @Test
